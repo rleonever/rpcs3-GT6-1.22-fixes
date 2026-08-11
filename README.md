@@ -10,7 +10,7 @@ The MLAA disable patch and motion blur fix patch (fixes black replays) are the f
 
 "Version: 1.2
 
-# Gran Turismo 6 (v1.22) - Illusion Baseline (Safe Working State)
+(hashtag symbol here) Gran Turismo 6 (v1.22) - Illusion Baseline (Safe Working State)
 
 PPU-42367707f4caac2668f10cb46498f64bde9db440:
   "GT6 Disable Anti Aliasing (Exact Illusion Original)":
