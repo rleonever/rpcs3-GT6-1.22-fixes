@@ -10,6 +10,8 @@ The MLAA disable patch and motion blur fix patch (fixes black replays) are locat
 
 - Currently trying to disable MLAA directly in the emulator pipeline without needing patches via a hack, to check if the vertex explosions still occur.
 
+- (Optional) On version 1.22, if you don't disable MLAA via patch, the game has an annoying tearing effect which i also couldn't fix, if we could fix this, the game in theory could be playable without any major issues, besides the garbage anti aliasing implementation. I abandoned trying to fix this but if anyone manages to, god bless you.
+
 Any changes are welcome!
 
 
