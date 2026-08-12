@@ -1,0 +1,24 @@
+Version: 1.2
+
+# Gran Turismo 6 (v1.22) - Illusion Baseline (Safe Working State)
+
+PPU-42367707f4caac2668f10cb46498f64bde9db440:
+  "GT6 Disable Anti Aliasing (Exact Illusion Original)":
+    Games:
+      "Gran Turismo 6":
+        BCUS99247: [ All ]
+    Author: "illusion"
+    Notes: "Original Illusion AA disable patch at 0xED2E88."
+    Patch Version: 1.0
+    Patch:
+      - [ be32, 0x00ED2E88, 0x39E00001 ]
+
+  "GT6 Disable Motion Blur (Exact Illusion Original)":
+    Games:
+      "Gran Turismo 6":
+        BCUS99247: [ All ]
+    Author: "illusion"
+    Notes: "Original Illusion Motion Blur disable patch at 0x8C2B4C. Fixes black replay screen."
+    Patch Version: 1.0
+    Patch:
+      - [ be32, 0x008C2B4C, 0x38600000 ]
