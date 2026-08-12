@@ -4,35 +4,9 @@ This fork currently fixes the following issues in Gran Turismo 6 version 1.22:
 
 WIP:
 
-- Currently trying to come up with a patch to disable MLAA without side issues. The patch disables the AA and also fixes the tearing, but introduces big vertex explosions around the map which ruins the experience.
+- Currently trying to come up with a patch to disable MLAA without side issues. The already available patch by Illusion disables the AA and also fixes the tearing, but introduces big vertex explosions around the map which ruins the experience.
 
-The MLAA disable patch and motion blur fix patch (fixes black replays) are the following:
-
-"Version: 1.2
-
-(hashtag symbol here) Gran Turismo 6 (v1.22) - Illusion Baseline (Safe Working State)
-
-PPU-42367707f4caac2668f10cb46498f64bde9db440:
-  "GT6 Disable Anti Aliasing (Exact Illusion Original)":
-    Games:
-      "Gran Turismo 6":
-        BCUS99247: [ All ]
-    Author: "illusion"
-    Notes: "Original Illusion AA disable patch at 0xED2E88."
-    Patch Version: 1.0
-    Patch:
-      - [ be32, 0x00ED2E88, 0x39E00001 ]
-
-  "GT6 Disable Motion Blur (Exact Illusion Original)":
-    Games:
-      "Gran Turismo 6":
-        BCUS99247: [ All ]
-    Author: "illusion"
-    Notes: "Original Illusion Motion Blur disable patch at 0x8C2B4C. Fixes black replay screen."
-    Patch Version: 1.0
-    Patch:
-      - [ be32, 0x008C2B4C, 0x38600000 ]
-"
+The MLAA disable patch and motion blur fix patch (fixes black replays) are located here: https://github.com/rleonever/rpcs3-GT6-1.22-fixes/blob/master/imported_patch.yml
 
 - Currently trying to disable MLAA directly in the emulator pipeline without needing patches via a hack, to check if the vertex explosions still occur.
 
