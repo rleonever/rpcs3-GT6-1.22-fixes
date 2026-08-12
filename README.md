@@ -12,6 +12,9 @@ The MLAA/TAA disable patch and motion blur fix patch (fixes black replays) are l
 
 - (Optional) On version 1.22, if you don't disable MLAA/TAA via patch, the game has an annoying tearing effect which i also couldn't fix, if we could fix this, the game in theory could be playable without any major issues, besides the garbage anti aliasing implementation. I abandoned trying to fix this but if anyone manages to, god bless you.
 
+Best scenario possible to run the game on 1.22: Enable Write and Read Color Buffers, set the resolution to 1080p (not your render resolution, the graphics mode). In 1080p mode, the AA is a lot less agressive compared to 720p, so the image, specially your car, will become more crisp, but the game will have some minor graphics downgrades. Tearing seems to happen a bit less when the game resolution is around 1080p and not higher (like 2K or 4K)
+
+
 Any changes are welcome!
 
 
