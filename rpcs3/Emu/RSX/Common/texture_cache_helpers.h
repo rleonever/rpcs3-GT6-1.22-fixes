@@ -634,6 +634,7 @@ namespace rsx
 		sampled_image_descriptor process_framebuffer_resource_fast(commandbuffer_type& cmd,
 			render_target_type texptr,
 			const image_section_attributes_t& attr,
+			const position2u& offset,
 			const size3f& scale,
 			texture_dimension_extended extended_dimension,
 			const texture_channel_remap_t& decoded_remap,
@@ -646,13 +647,18 @@ namespace rsx
 			bool is_depth = texptr->is_depth_surface();
 			auto attr2 = attr;
 
+			// Track the clipping offset. Typically it is {0, 0} which means exact match, but subregions can also use this function and we need to scale this up from guest to host.
+			auto scaled_offset = offset;
+
 			if (texptr->resolution_scaling_config.scale_percent != 100)
 			{
 				const auto [scaled_w, scaled_h] = rsx::apply_resolution_scale<true>(texptr->resolution_scaling_config, attr.width, attr.height, surface_width, surface_height);
 				const auto [unused, scaled_slice_h] = rsx::apply_resolution_scale<false>(texptr->resolution_scaling_config, RSX_SURFACE_DIMENSION_IGNORED, attr.slice_h, surface_width, surface_height);
+				const auto [scaled_off_x, scaled_off_y] = rsx::apply_resolution_scale<false>(texptr->resolution_scaling_config, static_cast<u16>(offset.x), static_cast<u16>(offset.y), surface_width, surface_height);
 				attr2.width = scaled_w;
 				attr2.height = scaled_h;
 				attr2.slice_h = scaled_slice_h;
+				scaled_offset = { scaled_off_x, scaled_off_y };
 			}
 
 			if (const bool gcm_format_is_depth = is_gcm_depth_format(attr2.gcm_format);
@@ -693,7 +699,7 @@ namespace rsx
 
 				rsx::surface_access access_type = rsx::surface_access::shader_read;
 
-				if (attr.width != surface_width || attr.height != surface_height)
+				if (offset.x || offset.y || attr.width != surface_width || attr.height != surface_height)
 				{
 					// If we can get away with clip only, do it
 					if (attr.edge_clamped)
@@ -726,7 +732,7 @@ namespace rsx
 					const auto command = surface_is_rop_target ? deferred_request_command::copy_image_dynamic : deferred_request_command::copy_image_static;
 
 					texptr->memory_barrier(cmd, rsx::surface_access::transfer_read);
-					return { texptr->get_surface(rsx::surface_access::transfer_read), command, attr2, {},
+					return { texptr->get_surface(rsx::surface_access::transfer_read), command, attr2, scaled_offset,
 							texture_upload_context::framebuffer_storage, format_class, scale,
 							extended_dimension, decoded_remap };
 				}
@@ -738,7 +744,7 @@ namespace rsx
 
 				if (requires_clip)
 				{
-					calculate_sample_clip_parameters(result, position2i(0, 0), size2i(attr.width, attr.height), size2i(surface_width, surface_height));
+					calculate_sample_clip_parameters(result, position2i(offset.x, offset.y), size2i(attr.width, attr.height), size2i(surface_width, surface_height));
 				}
 
 				return result;
@@ -750,7 +756,7 @@ namespace rsx
 			if (extended_dimension == rsx::texture_dimension_extended::texture_dimension_3d)
 			{
 				return{ texptr->get_surface(rsx::surface_access::transfer_read), deferred_request_command::_3d_unwrap,
-						attr2, {},
+						attr2, scaled_offset,
 						texture_upload_context::framebuffer_storage, format_class, scale,
 						rsx::texture_dimension_extended::texture_dimension_3d, decoded_remap };
 			}
@@ -758,7 +764,7 @@ namespace rsx
 			ensure(extended_dimension == rsx::texture_dimension_extended::texture_dimension_cubemap);
 
 			return{ texptr->get_surface(rsx::surface_access::transfer_read), deferred_request_command::cubemap_unwrap,
-					attr2, {},
+					attr2, scaled_offset,
 					texture_upload_context::framebuffer_storage, format_class, scale,
 					rsx::texture_dimension_extended::texture_dimension_cubemap, decoded_remap };
 		}

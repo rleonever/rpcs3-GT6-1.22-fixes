@@ -1725,8 +1725,8 @@ namespace rsx
 					.src = desc.external_handle,
 					.xform = surface_transform::coordinate_transform,
 					.level = level,
-					.src_x = 0,
-					.src_y = static_cast<u16>(desc.slice_h * n),
+					.src_x = desc.x,
+					.src_y = static_cast<u16>(desc.y + (desc.slice_h * n)),
 					.dst_x = 0,
 					.dst_y = 0,
 					.dst_z = n,
@@ -1777,7 +1777,7 @@ namespace rsx
 				for (u16 n = 0, section_id = 0; n < 6; ++n)
 				{
 					u16 mip_w = desc.width, mip_h = desc.height;
-					u16 y_offset = static_cast<u16>(desc.slice_h * n);
+					u16 y_offset = static_cast<u16>(desc.y + (desc.slice_h * n));
 
 					for (u8 mip = 0; mip < desc.mipmaps; ++mip)
 					{
@@ -1786,7 +1786,7 @@ namespace rsx
 							.src = desc.external_handle,
 							.xform = surface_transform::coordinate_transform,
 							.level = mip,
-							.src_x = 0,
+							.src_x = desc.x,
 							.src_y = y_offset,
 							.dst_x = 0,
 							.dst_y = 0,
@@ -1922,7 +1922,7 @@ namespace rsx
 					const bool force_convert = !render_target_format_is_compatible(texptr, attr.gcm_format);
 
 					auto result = helpers::process_framebuffer_resource_fast<sampled_image_descriptor>(
-						cmd, texptr, attr, scale, extended_dimension, remap, true, force_convert);
+						cmd, texptr, attr, {}, scale, extended_dimension, remap, true, force_convert);
 
 					if (!options.skip_texture_barriers && result.is_cyclic_reference)
 					{
@@ -1941,12 +1941,13 @@ namespace rsx
 			auto fast_fbo_check = [&]() -> sampled_image_descriptor
 			{
 				const auto& last = overlapping_fbos.back();
-				if (last.src_area.x == 0 && last.src_area.y == 0 && !last.is_clipped)
+
+				if (!last.is_clipped) //<- A non-clipped hit fully contains the requested box. We're good to go with the framebuffer processing.
 				{
 					const bool force_convert = !render_target_format_is_compatible(last.surface, attr.gcm_format);
 
 					return helpers::process_framebuffer_resource_fast<sampled_image_descriptor>(
-						cmd, last.surface, attr, scale, extended_dimension, remap, false, force_convert);
+						cmd, last.surface, attr, position2u(last.src_area.x, last.src_area.y), scale, extended_dimension, remap, false, force_convert);
 				}
 
 				return {};
