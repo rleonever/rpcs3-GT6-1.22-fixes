@@ -582,8 +582,7 @@ namespace gl
 		gl::texture_view* generate_cubemap_from_images(gl::command_context& cmd, const deferred_subresource& desc) override
 		{
 			auto _template = get_template_from_collection_impl(desc.sections_to_copy);
-			const u8 mip_count = 1 + desc.sections_to_copy.reduce(0, FN(std::max<u8>(x, y.level)));
-			auto result = create_temporary_subresource_impl(cmd, _template, GL_NONE, GL_TEXTURE_CUBE_MAP, desc.gcm_format, 0, 0, desc.width, desc.height, 1, mip_count, desc.remap, false);
+			auto result = create_temporary_subresource_impl(cmd, _template, GL_NONE, GL_TEXTURE_CUBE_MAP, desc.gcm_format, 0, 0, desc.width, desc.height, 1, desc.exact_mip_count(), desc.remap, false);
 
 			if (desc.force_bg_load)
 			{
@@ -597,7 +596,7 @@ namespace gl
 		gl::texture_view* generate_3d_from_2d_images(gl::command_context& cmd, const deferred_subresource& desc) override
 		{
 			auto _template = get_template_from_collection_impl(desc.sections_to_copy);
-			auto result = create_temporary_subresource_impl(cmd, _template, GL_NONE, GL_TEXTURE_3D, desc.gcm_format, 0, 0, desc.width, desc.height, desc.depth, 1, desc.remap, false);
+			auto result = create_temporary_subresource_impl(cmd, _template, GL_NONE, GL_TEXTURE_3D, desc.gcm_format, 0, 0, desc.width, desc.height, desc.depth, desc.exact_mip_count(), desc.remap, false);
 
 			if (desc.force_bg_load)
 			{

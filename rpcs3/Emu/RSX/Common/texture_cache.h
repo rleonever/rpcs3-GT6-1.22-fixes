@@ -188,6 +188,11 @@ namespace rsx
 				// Return typed null
 				return external_handle;
 			}
+
+			u8 exact_mip_count() const
+			{
+				return 1 + sections_to_copy.reduce(0, FN(std::max<u8>(x, y.level)));
+			}
 		};
 
 		struct sampled_image_descriptor : public sampled_image_descriptor_base
