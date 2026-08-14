@@ -1709,7 +1709,7 @@ namespace rsx
 					if (found_desc.external_handle != desc.external_handle ||
 						found_desc.op != desc.op ||
 						found_desc.x != desc.x || found_desc.y != desc.y ||
-						found_desc.width != desc.width || found_desc.height != desc.height ||
+						found_desc.width != desc.width || found_desc.height != desc.height || found_desc.depth != desc.depth ||
 						found_desc.gcm_format != desc.gcm_format)
 						continue;
 
@@ -1932,7 +1932,7 @@ namespace rsx
 			// Check surface cache early if the option is enabled
 			if (options.prefer_surface_cache)
 			{
-				const u16 block_h = (attr.depth * attr.slice_h);
+				const u32 block_h = (attr.depth * attr.slice_h);
 				overlapping_fbos = m_rtts.get_merged_texture_memory_region(cmd, attr.address, attr.width, block_h, attr.pitch, attr.bpp, rsx::surface_access::shader_read);
 
 				if (!overlapping_fbos.empty())
@@ -1993,7 +1993,7 @@ namespace rsx
 			if (!options.prefer_surface_cache)
 			{
 				// Now check for surface cache hits
-				const u16 block_h = (attr.depth * attr.slice_h);
+				const u32 block_h = (attr.depth * attr.slice_h);
 				overlapping_fbos = m_rtts.get_merged_texture_memory_region(cmd, attr.address, attr.width, block_h, attr.pitch, attr.bpp, rsx::surface_access::shader_read);
 			}
 
