@@ -255,15 +255,12 @@ namespace rsx
 			bool unordered_list = false;
 
 			rsx::simple_array<sort_helper> sort_list;
-			rsx::simple_array<utils::address_range32> sort_ranges;
 			sort_list.reserve(available_slices);
-			sort_ranges.reserve(available_slices);
 
 			// Generate sorting tree if both resources are available and overlapping
 			for (u32 index = 0; index < fbos.size(); ++index)
 			{
 				const auto range = fbos[index].surface->get_memory_range();
-				sort_ranges.push_back(range);
 				sort_list.push_back({
 					.tag = fbos[index].surface->last_use_tag,
 					.list = 0,
@@ -278,7 +275,6 @@ namespace rsx
 					continue;
 
 				const auto range = local[index]->get_section_range();
-				sort_ranges.push_back(range);
 				sort_list.push_back({
 					.tag = local[index]->last_write_tag,
 					.list = 1,
@@ -293,14 +289,9 @@ namespace rsx
 			}
 
 			// Check if ordered
-			for (u32 i = 0; i < sort_list.size(); ++i)
+			for (u32 i = 1; i < sort_list.size(); ++i)
 			{
-				if (i == 0)
-				{
-					continue;
-				}
-
-				if (sort_ranges[i].start < sort_ranges[i - 1].end)
+				if (sort_list[i].bounds.start <= sort_list[i - 1].bounds.end)
 				{
 					unordered_list = true;
 					break;
@@ -349,6 +340,7 @@ namespace rsx
 				std::tie(dst_x, dst_y) = rsx::apply_resolution_scale<false>(section.surface->resolution_scaling_config, dst_x, dst_y, attr.width, attr.height);
 
 				section.surface->memory_barrier(cmd, rsx::surface_access::transfer_read);
+				const bool output_covered = (section.dst_area.width >= attr.width) && (section_end >= slice_end);
 
 				out.push_back
 				({
@@ -367,7 +359,7 @@ namespace rsx
 					.dst_h = dst_height
 				});
 
-				return { section_end <= slice_end, section_end >= slice_end };
+				return { section_end <= slice_end, output_covered };
 			};
 
 			auto add_local_resource = [&](auto& section, u32 address, u16 slice, bool scaling) -> std::pair<bool, bool> // [ input fully consumed, output fully covered ]
@@ -395,35 +387,39 @@ namespace rsx
 				const size2u dst_size = { dimensions.width / attr.bpp, dimensions.height };
 				const size2u src_size = { dimensions.width / section_bpp, dimensions.height };
 
-				const u32 dst_slice_begin = slice * attr.slice_h;      // Output slice low watermark
-				const u32 dst_slice_end = dst_slice_begin + attr.height;   // Output slice high watermark
-
+				// NOTE: Computed dst_y is slice-local, not 2d-local. Our slice_h becomes our height.
+				// FIXME: This approach does not support mipmap levels.
+				const u32 dst_slice_h = attr.height;
 				const auto dst_y = dst_offset.y;
 				const auto dst_h = dst_size.height;
 
 				const auto write_section_end = dst_y + dst_h;
-				if (dst_y >= dst_slice_end || write_section_end <= dst_slice_begin)
+				const bool input_consumed = (write_section_end < attr.slice_h);
+
+				if (dst_y >= dst_slice_h)
 				{
 					// Belongs to a different slice
-					return { write_section_end <= dst_slice_begin, false };
+					return { input_consumed, false };
 				}
 
 				const u16 dst_w = static_cast<u16>(dst_size.width);
 				const u16 src_w = static_cast<u16>(src_size.width);
-				const u16 height = std::min(dst_slice_end, write_section_end) - dst_y;
+				const u16 height = std::min(dst_slice_h, write_section_end) - dst_y;
+				const bool output_covered = (dst_w >= attr.width) && (write_section_end >= dst_slice_h);
 
 				if (scaling)
 				{
 					// Since output is upscaled, also upscale on dst
 
 					const auto& scaling_config = rsx::get_current_renderer()->resolution_scaling_config;
-					const auto [_dst_x, _dst_y] = rsx::apply_resolution_scale<false>(scaling_config, static_cast<u16>(dst_offset.x), static_cast<u16>(dst_y - dst_slice_begin), attr.width, attr.height);
+					const auto [_dst_x, _dst_y] = rsx::apply_resolution_scale<false>(scaling_config, static_cast<u16>(dst_offset.x), static_cast<u16>(dst_y), attr.width, attr.height);
 					const auto [_dst_w, _dst_h] = rsx::apply_resolution_scale<true>(scaling_config, dst_w, height, attr.width, attr.height);
 
 					out.push_back
 					({
 						.src = section->get_raw_texture(),
 						.xform = surface_transform::identity,
+						.base_addr = section->get_section_base(),
 						.level = 0,
 						.src_x = static_cast<u16>(src_offset.x),   // src.x
 						.src_y = static_cast<u16>(src_offset.y),   // src.y
@@ -436,26 +432,27 @@ namespace rsx
 						.dst_h = _dst_h
 					});
 
-					return { write_section_end <= dst_slice_end, write_section_end >= dst_slice_end };
+					return { input_consumed, output_covered };
 				}
 
 				out.push_back
 				({
 					.src = section->get_raw_texture(),
 					.xform = surface_transform::identity,
+					.base_addr = section->get_section_base(),
 					.level = 0,
 					.src_x = static_cast<u16>(src_offset.x),         // src.x
 					.src_y = static_cast<u16>(src_offset.y),         // src.y
 					.dst_x = static_cast<u16>(dst_offset.x),         // dst.x
-					.dst_y = static_cast<u16>(dst_y - dst_slice_begin),  // dst.y
-					.dst_z = 0,
+					.dst_y = static_cast<u16>(dst_y),                // dst.y
+					.dst_z = slice,
 					.src_w = src_w,
 					.src_h = height,
 					.dst_w = dst_w,
 					.dst_h = height
 				});
 
-				return { write_section_end <= dst_slice_end, write_section_end >= dst_slice_end };
+				return { input_consumed, output_covered };
 			};
 
 			u32 current_address = attr.address;
@@ -637,6 +634,7 @@ namespace rsx
 		sampled_image_descriptor process_framebuffer_resource_fast(commandbuffer_type& cmd,
 			render_target_type texptr,
 			const image_section_attributes_t& attr,
+			const position2u& offset,
 			const size3f& scale,
 			texture_dimension_extended extended_dimension,
 			const texture_channel_remap_t& decoded_remap,
@@ -649,13 +647,18 @@ namespace rsx
 			bool is_depth = texptr->is_depth_surface();
 			auto attr2 = attr;
 
+			// Track the clipping offset. Typically it is {0, 0} which means exact match, but subregions can also use this function and we need to scale this up from guest to host.
+			auto scaled_offset = offset;
+
 			if (texptr->resolution_scaling_config.scale_percent != 100)
 			{
 				const auto [scaled_w, scaled_h] = rsx::apply_resolution_scale<true>(texptr->resolution_scaling_config, attr.width, attr.height, surface_width, surface_height);
 				const auto [unused, scaled_slice_h] = rsx::apply_resolution_scale<false>(texptr->resolution_scaling_config, RSX_SURFACE_DIMENSION_IGNORED, attr.slice_h, surface_width, surface_height);
+				const auto [scaled_off_x, scaled_off_y] = rsx::apply_resolution_scale<false>(texptr->resolution_scaling_config, static_cast<u16>(offset.x), static_cast<u16>(offset.y), surface_width, surface_height);
 				attr2.width = scaled_w;
 				attr2.height = scaled_h;
 				attr2.slice_h = scaled_slice_h;
+				scaled_offset = { scaled_off_x, scaled_off_y };
 			}
 
 			if (const bool gcm_format_is_depth = is_gcm_depth_format(attr2.gcm_format);
@@ -696,7 +699,7 @@ namespace rsx
 
 				rsx::surface_access access_type = rsx::surface_access::shader_read;
 
-				if (attr.width != surface_width || attr.height != surface_height)
+				if (offset.x || offset.y || attr.width != surface_width || attr.height != surface_height)
 				{
 					// If we can get away with clip only, do it
 					if (attr.edge_clamped)
@@ -729,7 +732,7 @@ namespace rsx
 					const auto command = surface_is_rop_target ? deferred_request_command::copy_image_dynamic : deferred_request_command::copy_image_static;
 
 					texptr->memory_barrier(cmd, rsx::surface_access::transfer_read);
-					return { texptr->get_surface(rsx::surface_access::transfer_read), command, attr2, {},
+					return { texptr->get_surface(rsx::surface_access::transfer_read), command, attr2, scaled_offset,
 							texture_upload_context::framebuffer_storage, format_class, scale,
 							extended_dimension, decoded_remap };
 				}
@@ -741,7 +744,7 @@ namespace rsx
 
 				if (requires_clip)
 				{
-					calculate_sample_clip_parameters(result, position2i(0, 0), size2i(attr.width, attr.height), size2i(surface_width, surface_height));
+					calculate_sample_clip_parameters(result, position2i(offset.x, offset.y), size2i(attr.width, attr.height), size2i(surface_width, surface_height));
 				}
 
 				return result;
@@ -753,7 +756,7 @@ namespace rsx
 			if (extended_dimension == rsx::texture_dimension_extended::texture_dimension_3d)
 			{
 				return{ texptr->get_surface(rsx::surface_access::transfer_read), deferred_request_command::_3d_unwrap,
-						attr2, {},
+						attr2, scaled_offset,
 						texture_upload_context::framebuffer_storage, format_class, scale,
 						rsx::texture_dimension_extended::texture_dimension_3d, decoded_remap };
 			}
@@ -761,7 +764,7 @@ namespace rsx
 			ensure(extended_dimension == rsx::texture_dimension_extended::texture_dimension_cubemap);
 
 			return{ texptr->get_surface(rsx::surface_access::transfer_read), deferred_request_command::cubemap_unwrap,
-					attr2, {},
+					attr2, scaled_offset,
 					texture_upload_context::framebuffer_storage, format_class, scale,
 					rsx::texture_dimension_extended::texture_dimension_cubemap, decoded_remap };
 		}
