@@ -126,3 +126,7 @@ CMakeUserPresets.json
 
 .cache/
 .lldbinit
+/Widget Tool
+/Docs
+/tools
+/RPCS3 Source.sln
