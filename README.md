@@ -1,4 +1,4 @@
-This fork currently fixes the following issues in Gran Turismo 6 version 1.22:
+This fork (choose gt6-1.22-hacks branch) currently fixes the following issues in Gran Turismo 6 version 1.22:
 
 - Black spots of reflections in cars (see https://github.com/RPCS3/rpcs3/issues/18607)
 
